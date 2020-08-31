@@ -4,7 +4,7 @@
 
 enum Suit { JOKER, SPADE, HEART, DIAMOND, CLUB };
 
-enum CardType {
+enum CardsType {
   HIGH,        // 0 高牌
   PAIR,        // 1 一对
   THREE,       // 2 三条
@@ -31,11 +31,11 @@ struct Card {
 class Cards {
  private:
   std::vector<Card> cards_;
-  // CardType type_;
 
   void sort_cards();
+  CardsType check_type();
 
-  CardType type_;
+  CardsType type_;
   int pivot_;
 
  public:
@@ -43,11 +43,10 @@ class Cards {
     sort_cards();
     type_ = check_type();
   }
-  CardType check_type();
-  CardType type() { return type_; }
+  CardsType type() { return type_; }
 
   // c1输或平局: -1, c1赢: 1, 无法比较: 0
-  friend int CardCmp(const Cards& c1, const Cards& c2);
+  friend int CardsCmp(const Cards& c1, const Cards& c2);
 };
 
 void Cards::sort_cards() {
@@ -56,7 +55,7 @@ void Cards::sort_cards() {
   });
 }
 
-CardType Cards::check_type() {
+CardsType Cards::check_type() {
   if (cards_.size() == 1) {
     pivot_ = cards_[0].value;
     return HIGH;
@@ -70,12 +69,12 @@ CardType Cards::check_type() {
       pivot_ = cards_[0].value;
       return PAIR;
     }
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
   if (cards_.size() == 3) {
-    CardType type = cards_[0] == cards_[1] && cards_[1] == cards_[2]
-                        ? THREE
-                        : CardType::ERROR;
+    CardsType type = cards_[0] == cards_[1] && cards_[1] == cards_[2]
+                         ? THREE
+                         : CardsType::ERROR;
     if (type == THREE) {
       pivot_ = cards_[0].value;
       return type;
@@ -88,14 +87,10 @@ CardType Cards::check_type() {
   if (cards_.size() == 4) {
     pivot_ = cards_[2].value;
     if (cards_[0] == cards_[3]) return FOUR;
-    if (cards_[0] == cards_[1] && cards_[1] == cards_[2] &&
-        cards_[2] != cards_[3])
-      return THREE_ONE;
-    if (cards_[3] == cards_[2] && cards_[2] == cards_[1] &&
-        cards_[1] != cards_[0])
-      return THREE_ONE;
+    if (cards_[0] == cards_[2] && cards_[2] != cards_[3]) return THREE_ONE;
+    if (cards_[3] == cards_[1] && cards_[1] != cards_[0]) return THREE_ONE;
     pivot_ = -1;
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
 
   // 判断是否成顺
@@ -137,7 +132,7 @@ CardType Cards::check_type() {
         cards_[3] == cards_[4])
       return THREE_TWO;
     pivot_ = -1;
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
 
   // 飞机
@@ -168,52 +163,37 @@ CardType Cards::check_type() {
   }
   // 2*3+2
   if (cards_.size() == 10) {
+    CardsType type;
     for (int i = 0; i <= 4; i += 2) {
       if (cards_[i + 0] == cards_[i + 2] && cards_[i + 3] == cards_[i + 5] &&
           cards_[i + 2].value + 1 == cards_[i + 3].value) {
         if (i == 0) {
-          CardType type = (cards_[6] == cards_[7] && cards_[8] == cards_[9])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[0].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+          type = (cards_[6] == cards_[7] && cards_[8] == cards_[9])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 2) {
+          type = (cards_[0] == cards_[1] && cards_[8] == cards_[9])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 4) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3])
+                     ? PLANE
+                     : CardsType::ERROR;
         }
-        if (i == 2) {
-          CardType type = (cards_[0] == cards_[1] && cards_[8] == cards_[9])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[2].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 4) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[4].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+        if (type == PLANE) {
+          pivot_ = cards_[i].value;
+          return PLANE;
+        } else {
+          pivot_ = -1;
+          return CardsType::ERROR;
         }
       }
-      return CardType::ERROR;
+      return CardsType::ERROR;
     }
   }
   // 3*3+1 注意与4*3冲突
   if (cards_.size() == 12) {
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i <= 3; ++i) {
       if (cards_[i + 0] == cards_[i + 2] && cards_[i + 3] == cards_[i + 5] &&
           cards_[i + 6] == cards_[i + 8] &&
           cards_[i + 2].value + 1 == cards_[i + 3].value &&
@@ -225,65 +205,42 @@ CardType Cards::check_type() {
   }
   // 3*3+2
   if (cards_.size() == 15) {
+    CardsType type;
     for (int i = 0; i <= 6; i += 2) {
       if (cards_[i + 0] == cards_[i + 2] && cards_[i + 3] == cards_[i + 5] &&
           cards_[i + 6] == cards_[i + 8] &&
           cards_[i + 2].value + 1 == cards_[i + 3].value &&
           cards_[i + 5].value + 1 == cards_[i + 6].value) {
         if (i == 0) {
-          CardType type = (cards_[9] == cards_[10] &&
-                           cards_[11] == cards_[12] && cards_[13] == cards_[14])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[0].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+          type = (cards_[9] == cards_[10] && cards_[11] == cards_[12] &&
+                  cards_[13] == cards_[14])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 2) {
+          type = (cards_[0] == cards_[1] && cards_[11] == cards_[12] &&
+                  cards_[13] == cards_[14])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 4) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
+                  cards_[13] == cards_[14])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 6) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
+                  cards_[4] == cards_[5])
+                     ? PLANE
+                     : CardsType::ERROR;
         }
-        if (i == 2) {
-          CardType type = (cards_[0] == cards_[1] && cards_[11] == cards_[12] &&
-                           cards_[13] == cards_[14])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[2].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 4) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
-                           cards_[13] == cards_[14])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[4].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 6) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
-                           cards_[4] == cards_[5])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[6].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+        if (type == PLANE) {
+          pivot_ = cards_[i].value;
+          return PLANE;
+        } else {
+          pivot_ = -1;
+          return CardsType::ERROR;
         }
       }
-      return CardType::ERROR;
+      return CardsType::ERROR;
     }
   }
   // 4*3+1
@@ -298,10 +255,11 @@ CardType Cards::check_type() {
         return PLANE;
       }
     }
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
   // 4*3+2
   if (cards_.size() == 20) {
+    CardsType type;
     for (int i = 0; i <= 8; i += 2) {
       if (cards_[i + 0] == cards_[i + 2] && cards_[i + 3] == cards_[i + 5] &&
           cards_[i + 6] == cards_[i + 8] && cards_[i + 9] == cards_[i + 11] &&
@@ -309,73 +267,40 @@ CardType Cards::check_type() {
           cards_[i + 5].value + 1 == cards_[i + 6].value &&
           cards_[i + 8].value + 1 == cards_[i + 9].value) {
         if (i == 0) {
-          CardType type =
-              (cards_[12] == cards_[13] && cards_[14] == cards_[15] &&
-               cards_[16] == cards_[17] && cards_[18] == cards_[19])
-                  ? PLANE
-                  : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[0].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+          type = (cards_[12] == cards_[13] && cards_[14] == cards_[15] &&
+                  cards_[16] == cards_[17] && cards_[18] == cards_[19])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 2) {
+          type = (cards_[0] == cards_[1] && cards_[14] == cards_[15] &&
+                  cards_[16] == cards_[17] && cards_[18] == cards_[19])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 4) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
+                  cards_[16] == cards_[17] && cards_[18] == cards_[19])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 6) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
+                  cards_[4] == cards_[5] && cards_[18] == cards_[19])
+                     ? PLANE
+                     : CardsType::ERROR;
+        } else if (i == 8) {
+          type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
+                  cards_[4] == cards_[5] && cards_[6] == cards_[7])
+                     ? PLANE
+                     : CardsType::ERROR;
         }
-        if (i == 2) {
-          CardType type = (cards_[0] == cards_[1] && cards_[14] == cards_[15] &&
-                           cards_[16] == cards_[17] && cards_[18] == cards_[19])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[2].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 4) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
-                           cards_[16] == cards_[17] && cards_[18] == cards_[19])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[4].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 6) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
-                           cards_[4] == cards_[5] && cards_[18] == cards_[19])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[6].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
-        }
-        if (i == 8) {
-          CardType type = (cards_[0] == cards_[1] && cards_[2] == cards_[3] &&
-                           cards_[4] == cards_[5] && cards_[6] == cards_[7])
-                              ? PLANE
-                              : CardType::ERROR;
-          if (type == PLANE) {
-            pivot_ = cards_[8].value;
-            return PLANE;
-          } else {
-            pivot_ = -1;
-            return CardType::ERROR;
-          }
+        if (type == PLANE) {
+          pivot_ = cards_[i].value;
+          return PLANE;
+        } else {
+          pivot_ = -1;
+          return CardsType::ERROR;
         }
       }
-      return CardType::ERROR;
+      return CardsType::ERROR;
     }
   }
   // 四带二
@@ -387,11 +312,10 @@ CardType Cards::check_type() {
       }
     }
     pivot_ = -1;
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
 
   // 四带两对
-
   if (cards_.size() == 8) {
     if (cards_[0] == cards_[3] && cards_[4] == cards_[5] &&
         cards_[6] == cards_[7]) {
@@ -408,16 +332,16 @@ CardType Cards::check_type() {
       pivot_ = cards_[4].value;
       return FOUR_PAIRS;
     }
-    return CardType::ERROR;
+    return CardsType::ERROR;
   }
 
   std::cout << "Oooops\n";
   pivot_ = -1;
-  return CardType::ERROR;
+  return CardsType::ERROR;
 }
 
-int CardCmp(const Cards& c1, const Cards& c2) {
-  if (c1.type_ == CardType::ERROR || c2.type_ == CardType::ERROR) return 0;
+int CardsCmp(const Cards& c1, const Cards& c2) {
+  if (c1.type_ == CardsType::ERROR || c2.type_ == CardsType::ERROR) return 0;
 
   // 某人有王炸
   if (c1.type_ == ROCKET) return 1;
@@ -447,36 +371,44 @@ int CardCmp(const Cards& c1, const Cards& c2) {
 
 int main() {
   std::vector<Card> vec, vec2;
-  // vec.push_back({3, SPADE});
-  // vec.push_back({6, SPADE});
-  vec.push_back({10, SPADE});
-  vec.push_back({10, SPADE});
-  vec.push_back({10, SPADE});
-  vec.push_back({9, SPADE});
-  vec.push_back({9, SPADE});
-  vec.push_back({9, SPADE});
   vec.push_back({3, SPADE});
-  vec.push_back({3, SPADE});
-  // vec.push_back({7, SPADE});
+  vec.push_back({6, SPADE});
+  vec.push_back({10, SPADE});
+  vec.push_back({10, SPADE});
+  vec.push_back({10, SPADE});
+  vec.push_back({9, SPADE});
+  vec.push_back({9, SPADE});
+  vec.push_back({9, SPADE});
+  vec.push_back({8, SPADE});
+  vec.push_back({8, SPADE});
+  vec.push_back({8, SPADE});
+  vec.push_back({7, SPADE});
   // vec.push_back({7, SPADE});
   // vec.push_back({9, SPADE});
   // vec.push_back({9, SPADE});
   // vec.push_back({8, SPADE});
+  // vec2.push_back({9, SPADE});
+  // vec2.push_back({9, SPADE});
+  // vec2.push_back({9, SPADE});
   vec2.push_back({10, SPADE});
   vec2.push_back({10, SPADE});
   vec2.push_back({10, SPADE});
-  vec2.push_back({11, SPADE});
-  vec2.push_back({11, SPADE});
-  vec2.push_back({11, SPADE});
-  vec2.push_back({3, SPADE});
-  vec2.push_back({3, SPADE});
+  vec2.push_back({10, SPADE});
+  // vec2.push_back({10, SPADE});
+  // vec2.push_back({11, SPADE});
+  // vec2.push_back({11, SPADE});
+  // vec2.push_back({11, SPADE});
+  // vec2.push_back({3, SPADE});
+  // vec2.push_back({3, SPADE});
+  // vec2.push_back({3, SPADE});
+
   // vec2.push_back({9, SPADE});
 
   Cards c(vec);
   Cards c2(vec2);
 
-  // std::cout << c2.type() << std::endl;
+  // std::cout << c.type() << std::endl;
 
-  std::cout << CardCmp(c2, c) << std::endl;
+  std::cout << CardsCmp(c2, c) << std::endl;
   return 0;
 }
