@@ -1,7 +1,7 @@
 qmake
 make
 make clean
-./poker-a
+./poker-c
 
 
 # ssh clt-server \

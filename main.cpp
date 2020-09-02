@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
   QApplication a(argc, argv);
-  PlayerA w;
+  PlayerC w;
   w.show();
   return a.exec();
 }
