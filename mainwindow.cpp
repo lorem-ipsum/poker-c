@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 
+#include <QApplication>
 #include <QByteArray>
 #include <QLabel>
 #include <QPushButton>
@@ -15,9 +16,24 @@ PlayerC::PlayerC(QWidget* parent) : QMainWindow(parent) {
   buttonStartRequesting->setText("Start connecting...");
   connect(buttonStartRequesting, SIGNAL(clicked()), this,
           SLOT(startRequesting()));
+
+  initGiveUpInfoLabels();
 }
 
 PlayerC::~PlayerC() {}
+
+void PlayerC::initGiveUpInfoLabels() {
+  for (int i = 0; i < 3; ++i) {
+    QLabel* giveupLabel = new QLabel(this);
+    giveupLabel->setText("不出");
+    giveupInfoLabels_.append(giveupLabel);
+    giveupInfoLabels_[i]->hide();
+  }
+
+  giveupInfoLabels_[0]->setGeometry(580, 400, 40, 32);
+  giveupInfoLabels_[1]->setGeometry(160, 200, 40, 32);
+  giveupInfoLabels_[2]->setGeometry(960, 200, 40, 32);
+}
 
 void PlayerC::startRequesting() {
   socketToA_ = new QTcpSocket();
@@ -68,45 +84,85 @@ void PlayerC::socketReadDataFromA() {
   QString theLandlordIs = readFromBuffer(buffer, "theLandlordIs");
   if (!theLandlordIs.isEmpty()) {
     setLandlord(theLandlordIs.toInt());
-    if (landlord_ == 1) {
+    for (auto plb : jiaoORbujiaoLabels_) {
+      plb->hide();
+    }
+    if (landlord_ == 2) {
+      lastPushCardPerson_ = 2;
       cardsOfC_.append(comcards_);
       std::sort(cardsOfC_.begin(), cardsOfC_.end());
       displayCards();
     }
+
+    // Display card nums
+    for (int i = 0; i < 3; ++i) {
+      cardsNum_.append(17);
+      QLabel* numLabel = new QLabel(this);
+      cardsNumLabel_.append(numLabel);
+    }
+
+    qDebug() << "landlord is" << landlord_;
+    cardsNum_[landlord_] += 3;
+
+    for (int i = 0; i < 3; ++i) {
+      cardsNumLabel_[personIndexToPosition_[i]]->setText(
+          QString::number(cardsNum_[i]));
+    }
+    cardsNumLabel_[0]->setGeometry(580, 500, 40, 20);
+    cardsNumLabel_[1]->setGeometry(200, 100, 40, 20);
+    cardsNumLabel_[2]->setGeometry(920, 100, 40, 20);
+    cardsNumLabel_[0]->show();
+    cardsNumLabel_[1]->show();
+    cardsNumLabel_[2]->show();
   }
 
   QString someOneHasPushedCards =
       readFromBuffer(buffer, "someOneHasPushedCards");
   if (!someOneHasPushedCards.isEmpty()) {
-    lastPushCardPerson_ = 0;
     cardsOnTable_ = stringToIntArray(someOneHasPushedCards);
+    lastPushCardPerson_ = cardsOnTable_.back();
+
+    giveupInfoLabels_[personIndexToPosition_[lastPushCardPerson_]]->hide();
+
+    updateCardNumber(lastPushCardPerson_, cardsOnTable_.size() - 1);
+    cardsOnTable_.pop_back();
+
     showTableOnSelfScreen(cardsOnTable_);
+
+    if (checkIfGameOver()) return;
   }
 
   QString chuOrBuchu = readFromBuffer(buffer, "chuOrBuchu");
   if (!chuOrBuchu.isEmpty()) {
     showChuOrBuchuBtns();
   }
+
+  QString someOneHasJustGivenUp =
+      readFromBuffer(buffer, "someOneHasJustGivenUp");
+  if (!someOneHasJustGivenUp.isEmpty()) {
+    displayGiveUpInfo(someOneHasJustGivenUp.toInt());
+  }
+
+  // QString landlordWins = readFromBuffer(buffer, "gameOver");
+  // if (!landlordWins.isEmpty()) {
+  //   showWinOrLoseInfo(landlordWins == "true");
+  //   showRestartOrExitBtnsOnSelfScreen();
+  // }
 }
 void PlayerC::socketDisconnectedFromA() {}
 
 void PlayerC::showOthersIfCampaignInfo(int personPosition, bool ifCampaign) {
+  QLabel* jiaoORbujiao = new QLabel(this);
+  jiaoORbujiaoLabels_.append(jiaoORbujiao);
+  jiaoORbujiao->setText(ifCampaign ? "叫" : "不叫");
   if (personPosition == 0) {
-    QLabel* jiaoORbujiao = new QLabel(this);
-    jiaoORbujiao->setText(ifCampaign ? "叫" : "不叫");
     jiaoORbujiao->setGeometry(580, 400, 40, 32);
-    jiaoORbujiao->show();
   } else if (personPosition == 1) {
-    QLabel* jiaoORbujiao = new QLabel(this);
-    jiaoORbujiao->setText(ifCampaign ? "叫" : "不叫");
     jiaoORbujiao->setGeometry(160, 200, 40, 32);
-    jiaoORbujiao->show();
   } else if (personPosition == 2) {
-    QLabel* jiaoORbujiao = new QLabel(this);
-    jiaoORbujiao->setText(ifCampaign ? "叫" : "不叫");
     jiaoORbujiao->setGeometry(960, 200, 40, 32);
-    jiaoORbujiao->show();
   }
+  jiaoORbujiao->show();
 }
 
 void PlayerC::showDoYouWantToCampaignButtons() {
@@ -115,8 +171,8 @@ void PlayerC::showDoYouWantToCampaignButtons() {
 
   yesBtn->setText("Yes");
   noBtn->setText("No");
-  yesBtn->setGeometry(120, 220, 50, 50);
-  noBtn->setGeometry(180, 220, 50, 50);
+  yesBtn->setGeometry(120, 500, 50, 50);
+  noBtn->setGeometry(180, 500, 50, 50);
   yesBtn->show();
   noBtn->show();
   // doYouWantToCampaign->addButton(yesBtn);
@@ -149,12 +205,12 @@ void PlayerC::displayCards() {
     cardImage = cardImage.scaled(QSize(330, 160), Qt::IgnoreAspectRatio,
                                  Qt::SmoothTransformation);
     cardLabel->setPixmap(cardImage);
-    cardLabel->setGeometry(80 + 50 * i, 600, 360, 200);
+    cardLabel->setGeometry(40 + 50 * i, 600, 360, 200);
     cardLabel->show();
   }
 }
 
-void PlayerC::displayCommonCards(QList<int> commonCards) {
+void PlayerC::displayCommonCards(const QList<int>& commonCards) {
   for (int i = 0; i < commonCards.size(); ++i) {
     QLabel* cardLabel = new QLabel(this);
     QPixmap cardImage =
@@ -162,12 +218,12 @@ void PlayerC::displayCommonCards(QList<int> commonCards) {
     cardImage = cardImage.scaled(QSize(330, 160), Qt::IgnoreAspectRatio,
                                  Qt::SmoothTransformation);
     cardLabel->setPixmap(cardImage);
-    cardLabel->setGeometry(500 + 50 * i, 50, 360, 200);
+    cardLabel->setGeometry(480 + 50 * i, 30, 360, 200);
     cardLabel->show();
   }
 }
 
-void PlayerC::showTableOnSelfScreen(QList<int>) {
+void PlayerC::showTableOnSelfScreen(const QList<int>&) {
   // 先删除之前的卡
   for (QLabel* item : tableCardLabels_) {
     item->hide();
@@ -195,8 +251,8 @@ void PlayerC::showChuOrBuchuBtns() {
 
   chuBtn->setText("出牌");
   buchuBtn->setText("不出");
-  chuBtn->setGeometry(120, 220, 50, 50);
-  buchuBtn->setGeometry(180, 220, 50, 50);
+  chuBtn->setGeometry(120, 500, 50, 50);
+  buchuBtn->setGeometry(180, 500, 50, 50);
   chuBtn->show();
   buchuBtn->show();
 
@@ -227,6 +283,11 @@ void PlayerC::showChuOrBuchuBtns() {
     if (CARDS_CMP(cardsToPush, cardsOnTable_)) {
       qDebug() << "CHECKING...2";
 
+      updateCardNumber(2, cardsToPush.size());
+
+      chuBtn->hide();
+      buchuBtn->hide();
+
       // C不再展示出掉的牌
       for (int i = 0; i < cardsToPush.size(); ++i) {
         cardsOfC_.removeOne(cardsToPush[i]);
@@ -238,15 +299,72 @@ void PlayerC::showChuOrBuchuBtns() {
       cardsOnTable_ = cardsToPush;
       showTableOnSelfScreen(cardsOnTable_);
 
-      chuBtn->hide();
-      buchuBtn->hide();
+      if (checkIfGameOver()) return;
+
+      // if (cardsOfC_.isEmpty()) {
+      //   showWinOrLoseInfo(true);
+      //   sleep(50);
+      //   castToA("gameOver", landlord_ == 2 ? "true" : "false");
+      //   qDebug() << "C has cast to A that C has won!!!!!!!!!!!!!!!!!!!!";
+
+      //   showRestartOrExitBtnsOnSelfScreen();
+      //   return;
+      // }
     }
   });
-  connect(buchuBtn, &QPushButton::clicked, [=]() { tellAGiveUp(); });
+  connect(buchuBtn, &QPushButton::clicked, [=]() {
+    chuBtn->hide();
+    buchuBtn->hide();
+    tellAGiveUp();
+  });
 }
 
-void PlayerC::notifyAThatCHasJustPushedCards(QList<int> CPushedCards) {
+void PlayerC::notifyAThatCHasJustPushedCards(const QList<int>& CPushedCards) {
   castToA("CHasPushedCards", intArrayToString(CPushedCards));
 }
 
-void PlayerC::tellAGiveUp() { castToA("CHasGivenUp", "info"); }
+void PlayerC::tellAGiveUp() {
+  sleep(50);
+  castToA("CHasGivenUp", "info");
+}
+
+void PlayerC::displayGiveUpInfo(int n) {
+  giveupInfoLabels_[personIndexToPosition_[n]]->show();
+}
+
+void PlayerC::showRestartOrExitBtnsOnSelfScreen() {
+  QPushButton* restartBtn = new QPushButton(this);
+  QPushButton* exitBtn = new QPushButton(this);
+
+  restartBtn->setText("重新开始");
+  exitBtn->setText("退出");
+  restartBtn->setGeometry(970, 500, 50, 50);
+  exitBtn->setGeometry(1030, 500, 50, 50);
+  restartBtn->show();
+  exitBtn->show();
+
+  connect(exitBtn, SIGNAL(clicked()), qApp, SLOT(exit()));
+
+  connect(restartBtn, &QPushButton::clicked, [=]() {
+    // 等待另外两者连接
+  });
+}
+
+void PlayerC::showWinOrLoseInfo(bool win) {
+  QLabel* winOrLoseLabel = new QLabel(this);
+  winOrLoseLabel->setText(win ? "YOU WIN!!!" : "YOU LOSE!!!");
+  winOrLoseLabel->setGeometry(200, 50, 800, 400);
+  winOrLoseLabel->setFont(QFont("Helvetica", 48));
+  winOrLoseLabel->show();
+}
+
+bool PlayerC::checkIfGameOver() {
+  for (int i = 0; i < cardsNum_.size(); ++i) {
+    if (cardsNum_[i] == 0) {
+      showWinOrLoseInfo((landlord_ == i) == (landlord_ == 2));
+      showRestartOrExitBtnsOnSelfScreen();
+      return true;
+    }
+  }
+  return false;
+}
